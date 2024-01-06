@@ -1,0 +1,114 @@
+Graded Assignment on Nested Queries
+
+
+Queries and Answers: 
+
+
+
+1. Question: For each class, find the student(s) who scored the highest in Science.
+
+SELECT s.class_id, c.class_name, s.student_id, st.student_name, sc.subject_score
+FROM Scores sc
+JOIN Students st ON sc.student_id = st.student_id
+JOIN Classes c ON sc.class_name = c.class_name
+WHERE (sc.class_name = 'Science', sc.subject_score = (SELECT MAX(subject_score) FROM Scores WHERE class_name = 'Science'));
+
+
+
+2. Question: List the names of students who scored lower in Math than their average Science score.
+
+SELECT st.student_name
+FROM Students st
+JOIN Scores sc1 ON st.student_id = sc1.student_id AND sc1.class_name = 'Math'
+JOIN (SELECT student_id, AVG(subject_score) AS avg_science FROM Scores WHERE class_name = 'Science' GROUP BY student_id) sc2
+ON st.student_id = sc2.student_id
+WHERE sc1.subject_score < sc2.avg_science;
+
+
+
+3. Question: Display the class names with the highest number of students who scored above 80 in any subject.
+
+SELECT c.class_name, COUNT(DISTINCT s.student_id) AS num_students
+FROM Classes c
+JOIN Scores s ON c.class_name = s.class_name
+WHERE s.subject_score > 80
+GROUP BY c.class_name
+HAVING COUNT(DISTINCT s.student_id) = (SELECT COUNT(DISTINCT student_id) FROM Scores WHERE subject_score > 80);
+
+
+
+4. Question: Find the students who scored the highest in each subject.
+
+SELECT subject_name, student_name, subject_score
+FROM (
+    SELECT subject_name, student_name, subject_score,
+           ROW_NUMBER() OVER (PARTITION BY subject_name ORDER BY subject_score DESC) AS rnk
+    FROM (
+        SELECT sc.subject_name, st.student_name, sc.subject_score
+        FROM Scores sc
+        JOIN Students st ON sc.student_id = st.student_id
+    ) AS subquery
+) AS ranked
+WHERE rnk = 1;
+
+
+
+5. Question: List the names of students who scored higher than the average of any student's score in their own class.
+
+SELECT st.student_name
+FROM Students st
+JOIN Scores sc ON st.student_id = sc.student_id
+WHERE sc.subject_score > (SELECT AVG(subject_score) FROM Scores WHERE class_name = sc.class_name);
+
+
+
+6. Question: Find the class(es) where the students average age is above the average age of all students.
+
+SELECT c.class_id, c.class_name
+FROM Classes c
+JOIN Students s ON c.class_id = s.class_id
+GROUP BY c.class_id, c.class_name
+HAVING AVG(s.age) > (SELECT AVG(age) FROM Students);
+
+
+
+7. Question: Display the student names and their total scores, ordered by the total score in descending order.
+
+SELECT st.student_name, SUM(sc.subject_score) AS total_score
+FROM Students st
+JOIN Scores sc ON st.student_id = sc.student_id
+GROUP BY st.student_id, st.student_name
+ORDER BY total_score DESC;
+
+
+
+8. Question: Find the student(s) who scored the highest in the class with the lowest average score.
+
+SELECT st.student_id, st.student_name, sc.subject_score
+FROM Students st
+JOIN Scores sc ON st.student_id = sc.student_id
+WHERE sc.class_id = (SELECT class_id FROM Scores GROUP BY class_id ORDER BY AVG(subject_score) ASC LIMIT 1)
+ORDER BY sc.subject_score DESC
+LIMIT 1;
+
+
+
+9. Question: List the names of students who scored the same as Alice in at least one subject.
+
+SELECT st2.student_name
+FROM Students st1
+JOIN Scores sc1 ON st1.student_id = sc1.student_id
+JOIN Students st2 ON st2.student_id <> st1.student_id
+JOIN Scores sc2 ON st2.student_id = sc2.student_id AND sc1.subject_score = sc2.subject_score
+WHERE st1.student_name = 'Alice';
+
+
+
+10. Question: Display the class names along with the number of students who scored below the average score in their class.
+
+SELECT c.class_name, COUNT(st.student_id) AS num_students_below_avg
+FROM Classes c
+JOIN Students st ON c.class_id = st.class_id
+JOIN Scores sc ON st.student_id = sc.student_id
+WHERE sc.subject_score < (SELECT AVG(subject_score) FROM Scores WHERE class_name = c.class_name)
+GROUP BY c.class_name;
